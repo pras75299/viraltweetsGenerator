@@ -1,5 +1,5 @@
 {
-  "name": "my-turborepo",
+  "name": "twitter-helper",
   "private": true,
   "scripts": {
     "build": "turbo run build",
