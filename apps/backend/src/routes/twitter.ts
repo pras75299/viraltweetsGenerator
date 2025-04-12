@@ -70,15 +70,15 @@ const analyzeHandler: RequestHandler = async (req, res): Promise<void> => {
     console.log('Analyzing content with OpenAI...');
     // Analyze content with OpenAI to create mind map
     const analysis = await openai.chat.completions.create({
-      model: "gpt-4-turbo", // Use a model supporting JSON mode
+      model: "gpt-4-turbo",
       messages: [
         {
           role: "system",
-          content: "Analyze the provided text content from a Twitter profile page. Identify key topics, recurring themes, user interests, and the style of communication. Create a structured mind map representation of this analysis, focusing on factors that seem to drive engagement (based on inferred context like common phrases, questions asked, etc.). Output ONLY the JSON for the mind map."
+          content: "Create a JSON mind map of the Twitter profile's content. Focus on: 1) Main topics 2) Writing style 3) Engagement patterns 4) Hashtag usage 5) Content themes. Structure as: {topics: [], style: {}, engagement: [], hashtags: [], themes: []}."
         },
         {
           role: "user",
-          content: pageContent // Pass the scraped content
+          content: pageContent
         }
       ],
       response_format: { type: "json_object" },
@@ -94,15 +94,15 @@ const analyzeHandler: RequestHandler = async (req, res): Promise<void> => {
     console.log('Generating tweet suggestions with OpenAI...');
     // Generate tweet suggestions based on the analysis
     const suggestions = await openai.chat.completions.create({
-      model: "gpt-4-turbo", // Use a model supporting JSON mode
+      model: "gpt-4-turbo",
       messages: [
         {
           role: "system",
-          content: "Based on the provided mind map analysis of a Twitter profile, generate 5 distinct tweet ideas (max 280 characters each) that mimic the user's style and topics, aiming for high engagement. Consider common engagement tactics like asking questions, using relevant hashtags, or being conversational. Output ONLY a JSON array of strings, where each string is a tweet suggestion."
+          content: "Generate 5 tweet ideas (max 280 chars) based on the mind map. Each tweet should: 1) Match the user's style 2) Include relevant hashtags 3) Use engagement tactics. Output format: {suggestions: string[]}."
         },
         {
           role: "user",
-          content: mindMapContent // Use the mind map analysis as context
+          content: mindMapContent
         }
       ],
       response_format: { type: "json_object" },
