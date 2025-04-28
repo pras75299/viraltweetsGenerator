@@ -4,6 +4,7 @@ import OpenAI from 'openai';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import dotenv from 'dotenv';
+import { Tweet } from '../models/tweet';
 
 dotenv.config();
 
@@ -46,131 +47,121 @@ async function fetchUrlContent(url: string): Promise<string> {
   }
 }
 
-// Define request body interface for type safety
-interface AnalyzeRequestBody {
+// Generate viral tweets based on profile content
+async function generateViralTweets(content: string): Promise<string[]> {
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4-1106-preview",
+    messages: [
+      {
+        role: "system",
+        content: `You are a world-class viral tweet strategist and prompt engineer. When given a user’s profile content, do the following:
+
+          1. Deeply analyze their niche, tone, audience interests, and past engagement patterns.  
+          2. Research and weave in 1-2 trending topics or hashtags relevant to their niche.  
+          3. Craft 15 unique tweets, each ≤ 280 characters, that are:  
+            • Emotionally charged (start with a hook)  
+            • Highly shareable (use a clear call-to-action or compelling question)  
+            • Valuable or actionable (offer quick tips, insights, or resources)  
+            • Copywriting-driven (apply AIDA, PAS, or similar frameworks)  
+            • Branded and on-voice (reflect the profile's style and language)  
+            • Enhanced with exactly one emoji for emphasis  
+
+          4. Output must be **only** a JSON array of tweet strings,`
+      },
+      {
+        role: "user",
+        content
+      }
+    ],
+    response_format: { type: "json_object" }
+  });
+
+  const result = JSON.parse(completion.choices[0].message?.content || '{"tweets": []}');
+  return Array.isArray(result.tweets) ? result.tweets : [];
+}
+
+interface GenerateTweetsRequestBody {
   url: string;
 }
-// Use RequestHandler type with appropriate generic parameters
-const analyzeHandler: RequestHandler = async (req, res): Promise<void> => {
+
+const generateTweetsHandler: RequestHandler = async (req, res): Promise<void> => {
   try {
-    const { url } = req.body as AnalyzeRequestBody;
+    const { url } = req.body as GenerateTweetsRequestBody;
+    
     if (!url || typeof url !== 'string') {
       res.status(400).json({ error: 'Invalid URL provided' });
       return;
     }
 
-    console.log(`Fetching content for URL: ${url}`);
+    // Check if we already have recent tweets for this profile
+    const existingTweets = await Tweet.find({ 
+      profileUrl: url,
+      lastUpdated: { 
+        $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) 
+      }
+    });
+
+    if (existingTweets.length > 0) {
+      res.json({ tweets: existingTweets });
+      return;
+    }
+
+    // Fetch and analyze profile content
     const pageContent = await fetchUrlContent(url);
-    console.log(`Content fetched, length: ${pageContent.length}`);
     if (!pageContent) {
       res.status(500).json({ error: 'Could not extract content from the URL.' });
       return;
     }
 
-    console.log('Analyzing content with OpenAI...');
-    // Analyze content with OpenAI to create mind map
-    const analysis = await openai.chat.completions.create({
-      model: "gpt-4-turbo",
-      messages: [
-        {
-          role: "system",
-          content: "Create a JSON mind map of the Twitter profile's content. Focus on: 1) Main topics 2) Writing style 3) Engagement patterns 4) Hashtag usage 5) Content themes. Structure as: {topics: [], style: {}, engagement: [], hashtags: [], themes: []}."
-        },
-        {
-          role: "user",
-          content: pageContent
-        }
-      ],
-      response_format: { type: "json_object" },
-    });
-    
-    const mindMapContent = analysis.choices[0].message?.content;
-    console.log('Mind map analysis complete.');
-    
-    if (!mindMapContent) {
-        throw new Error('OpenAI did not return analysis content.');
-    }
+    // Generate new viral tweets
+    const tweetTexts = await generateViralTweets(pageContent);
 
-    console.log('Generating tweet suggestions with OpenAI...');
-    // Generate tweet suggestions based on the analysis
-    const suggestions = await openai.chat.completions.create({
-      model: "gpt-4-turbo",
-      messages: [
-        {
-          role: "system",
-          content: "Generate 5 tweet ideas (max 280 chars) based on the mind map. Each tweet should: 1) Match the user's style 2) Include relevant hashtags 3) Use engagement tactics. Output format: {suggestions: string[]}."
-        },
-        {
-          role: "user",
-          content: mindMapContent
-        }
-      ],
-      response_format: { type: "json_object" },
-    });
+    // Store tweets in database
+    const savedTweets = await Promise.all(
+      tweetTexts.map(async (tweetText) => {
+        const tweet = new Tweet({
+          text: tweetText,
+          profileUrl: url,
+          createdAt: new Date(),
+          lastUpdated: new Date()
+        });
+        return await tweet.save();
+      })
+    );
 
-    const tweetSuggestionsContent = suggestions.choices[0].message?.content;
-    console.log('Tweet suggestions generated.');
-
-    if (!tweetSuggestionsContent) {
-        throw new Error('OpenAI did not return tweet suggestions.');
-    }
-
-    // Attempt to parse the JSON outputs, handle potential errors
-    let mindMapData = {};
-    let tweetSuggestionsData: string[] = [];
-
-    try {
-        // Assuming OpenAI returns a JSON object string for the mind map
-        mindMapData = JSON.parse(mindMapContent);
-    } catch (e) {
-        console.error("Failed to parse mind map JSON from OpenAI:", mindMapContent);
-        // Keep mindMapData as {} or provide fallback structure
-    }
-
-    try {
-        // OpenAI will likely wrap the array in an object when response_format is json_object
-        // E.g., { "suggestions": ["tweet1", "tweet2"] }
-        const parsedSuggestions = JSON.parse(tweetSuggestionsContent);
-        // Extract the array, assuming a key like "suggestions" or similar
-        // This might need adjustment based on actual OpenAI output format
-        const suggestionsKey = Object.keys(parsedSuggestions)[0]; 
-        const extractedArray = parsedSuggestions[suggestionsKey];
-
-        if (Array.isArray(extractedArray) && extractedArray.every(item => typeof item === 'string')) {
-           tweetSuggestionsData = extractedArray;
-        } else {
-           console.error("Parsed tweet suggestions is not an array of strings:", parsedSuggestions);
-           // Attempt to find an array of strings within the object
-           for(const key in parsedSuggestions) {
-              if (Array.isArray(parsedSuggestions[key]) && parsedSuggestions[key].every((item: unknown) => typeof item === 'string')) {
-                tweetSuggestionsData = parsedSuggestions[key];
-                break;
-              }
-           }
-           if (tweetSuggestionsData.length === 0) {
-             console.warn("Could not find a valid string array in suggestions response.");
-           }
-        }
-    } catch (e) {
-        console.error("Failed to parse tweet suggestions JSON from OpenAI:", tweetSuggestionsContent);
-        // Keep tweetSuggestionsData as []
-    }
-
-
-    res.json({
-      mindMap: mindMapData,
-      suggestions: tweetSuggestionsData
-    });
+    res.json({ tweets: savedTweets });
 
   } catch (error: any) {
-    console.error('Error analyzing Twitter profile via URL:', error);
-    // More specific error reporting if possible
-    const errorMessage = error?.response?.data?.error?.message || error.message || 'Failed to analyze Twitter profile via URL';
+    console.error('Error generating tweets:', error);
+    const errorMessage = error?.response?.data?.error?.message || error.message || 'Failed to generate tweets';
     res.status(500).json({ error: errorMessage });
   }
 };
 
-// Register the route handler
-router.post('/analyze', analyzeHandler);
+// Get stored tweets for a profile
+const getStoredTweetsHandler: RequestHandler = async (req, res): Promise<void> => {
+  try {
+    const { url } = req.query;
+    
+    if (!url || typeof url !== 'string') {
+      res.status(400).json({ error: 'Invalid URL provided' });
+      return;
+    }
+
+    const tweets = await Tweet.find({ profileUrl: url })
+      .sort({ createdAt: -1 })
+      .limit(10);
+
+    res.json({ tweets });
+
+  } catch (error: any) {
+    console.error('Error fetching stored tweets:', error);
+    res.status(500).json({ error: 'Failed to fetch stored tweets' });
+  }
+};
+
+// Register routes
+router.post('/generate-tweets', generateTweetsHandler);
+router.get('/stored-tweets', getStoredTweetsHandler);
 
 export default router;

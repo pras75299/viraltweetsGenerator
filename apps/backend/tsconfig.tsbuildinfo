@@ -1,1 +1,1 @@
-{"root":["./src/index.ts","./src/routes/twitter.ts"],"version":"5.8.2"}
+{"root":["./src/index.ts","./src/config/db.ts","./src/models/tweet.ts","./src/routes/twitter.ts"],"version":"5.8.2"}

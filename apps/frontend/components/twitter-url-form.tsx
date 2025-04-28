@@ -6,28 +6,34 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { motion } from "framer-motion";
 import { Loader2, Bot } from "lucide-react";
-import { useMindMapStore } from "@/store/mindmap-store";
 import { useTweetSuggestionsStore } from "@/store/suggestions-store";
+
+interface Tweet {
+  id: string;
+  text: string;
+  createdAt: string;
+}
+
+interface ApiResponse {
+  tweets: Tweet[];
+}
 
 export function TwitterUrlForm() {
   const [url, setUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const setMindMapData = useMindMapStore((state) => state.setData);
-  const setSuggestions = useTweetSuggestionsStore(
-    (state) => state.setSuggestions
-  );
+  const setTweets = useTweetSuggestionsStore((state) => state.setTweets);
+  const clearTweets = useTweetSuggestionsStore((state) => state.clearTweets);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
-    setMindMapData(null);
-    setSuggestions([]);
+    clearTweets();
 
     try {
       const response = await fetch(
-        "http://localhost:8080/api/twitter/analyze",
+        "http://localhost:3001/api/twitter/generate-tweets",
         {
           method: "POST",
           headers: {
@@ -39,16 +45,13 @@ export function TwitterUrlForm() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to analyze Twitter profile");
+        throw new Error(errorData.error || "Failed to generate tweets");
       }
 
-      const data = await response.json();
-      console.log("Analysis data:", data);
-
-      setMindMapData(data.mindMap);
-      setSuggestions(data.suggestions);
+      const data: ApiResponse = await response.json();
+      setTweets(data.tweets);
     } catch (err) {
-      console.error("Analysis error:", err);
+      console.error("Error generating tweets:", err);
       setError(
         err instanceof Error ? err.message : "An unknown error occurred"
       );
@@ -64,13 +67,13 @@ export function TwitterUrlForm() {
       transition={{ duration: 0.5 }}
     >
       <Card className="p-6 bg-gray-800/50 border-gray-700 shadow-lg">
-        <CardHeader className="p-0 mb-4">
+        <CardHeader className="p-0 mb-0">
           <CardTitle className="text-lg text-gray-200">
             Enter Twitter Profile URL
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-2">
             <div className="flex items-end gap-2">
               <div className="flex-1">
                 <label htmlFor="twitter-url" className="sr-only">
@@ -79,7 +82,7 @@ export function TwitterUrlForm() {
                 <Input
                   id="twitter-url"
                   type="url"
-                  placeholder="https://x.com/username or https://twitter.com/username"
+                  placeholder="https://x.com/username"
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                   className="bg-gray-700/50 border-gray-600 text-white placeholder:text-gray-400 focus:ring-blue-500 focus:border-blue-500"
@@ -94,12 +97,12 @@ export function TwitterUrlForm() {
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Analyzing...
+                    Generating...
                   </>
                 ) : (
                   <>
                     <Bot className="mr-2 h-4 w-4" />
-                    Analyze
+                    Generate Tweets
                   </>
                 )}
               </Button>

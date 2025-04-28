@@ -1,11 +1,19 @@
 import { create } from 'zustand'
 
+interface Tweet {
+  id: string;
+  text: string;
+  createdAt: string;
+}
+
 interface TweetSuggestionsState {
-  suggestions: string[];
-  setSuggestions: (suggestions: string[]) => void;
+  tweets: Tweet[];
+  setTweets: (tweets: Tweet[]) => void;
+  clearTweets: () => void;
 }
 
 export const useTweetSuggestionsStore = create<TweetSuggestionsState>((set) => ({
-  suggestions: [],
-  setSuggestions: (suggestions) => set({ suggestions }),
+  tweets: [],
+  setTweets: (tweets) => set({ tweets }),
+  clearTweets: () => set({ tweets: [] }),
 })) 
