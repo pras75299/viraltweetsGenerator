@@ -54,11 +54,11 @@ async function generateViralTweets(content: string): Promise<string[]> {
     messages: [
       {
         role: "system",
-        content: `You are a world-class viral tweet strategist and prompt engineer. When given a user’s profile content, do the following:
+        content: `You are a world-class viral tweet strategist and prompt engineer. When given a user's profile content, do the following:
 
           1. Deeply analyze their niche, tone, audience interests, and past engagement patterns.  
           2. Research and weave in 1-2 trending topics or hashtags relevant to their niche.  
-          3. Craft 15 unique tweets, each ≤ 280 characters, that are:  
+          3. Craft 10 unique tweets, each ≤ 280 characters, that are:  
             • Emotionally charged (start with a hook)  
             • Highly shareable (use a clear call-to-action or compelling question)  
             • Valuable or actionable (offer quick tips, insights, or resources)  
