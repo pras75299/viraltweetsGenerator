@@ -30,7 +30,7 @@ A powerful application that helps you generate viral-worthy tweets using AI and 
 
 ```sh
 git clone https://github.com/pras75299/viraltweetsGenerator.git
-cd twitter-helper
+cd viraltweetsGenerator
 ```
 
 2. Install dependencies:
