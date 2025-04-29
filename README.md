@@ -6,12 +6,6 @@ A powerful application that helps you generate viral-worthy tweets using AI and 
 
 - 🧠 AI-powered tweet generation based on collected data
 - 🔄 Automatic data collection and updates every 24 hours
-- 📊 Tweet performance analytics and insights
-- 🎯 Multiple tweet generation styles (professional, casual, humorous)
-- 📅 Content calendar and scheduling
-- 🔍 Topic trend analysis and hashtag optimization
-- 💡 Thread generation capabilities
-- 📈 Performance tracking and analytics
 
 ## Tech Stack
 
